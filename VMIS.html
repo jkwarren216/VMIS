@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verizon Mobile Security Navigator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #F6F0E2; /* User's requested color */
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            color: #000000; /* User's requested black text */
+            font-weight: bold; /* Makes all text bold */
+        }
+
+        .gem-container {
+            background-color: #FFFFFF;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 700px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            min-height: 500px;
+            overflow: hidden;
+        }
+
+        .gem-display {
+            flex-grow: 1;
+            padding-bottom: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #E0E0E0;
+            margin-bottom: 20px;
+        }
+
+        .gem-message {
+            background-color: #F7F7F7;
+            color: #000000;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            font-size: 1.05em;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .user-choice {
+            background-color: #F8FF3C;
+            text-align: right;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-left: auto;
+            max-width: 70%;
+            margin-bottom: 10px;
+            color: #000000;
+            font-size: 0.95em;
+        }
+
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: flex-start;
+            margin-top: 10px;
+        }
+
+        .action-button {
+            background-color: #EE001E;
+            color: white;
+            border: none;
+            padding: 14px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            white-space: nowrap;
+        }
+
+        .action-button:hover {
+            background-color: #FF281E;
+            transform: translateY(-1px);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+        }
+
+        /* Keyframe for fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .gem-container {
+                width: 95%;
+                padding: 20px;
+            }
+            .action-button {
+                width: calc(50% - 6px);
+                font-size: 15px;
+                padding: 12px 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .action-button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="gem-container">
+        <div id="gem-display" class="gem-display">
+        </div>
+        <div id="button-container" class="button-container">
+        </div>
+    </div>
+
+    <script>
+        const gemDisplay = document.getElementById('gem-display');
+        const buttonContainer = document.getElementById('button-container');
+
+        // --- Global State Management Object ---
+        let vmisDiscoveryState = {
+            attackConcern: 'unknown', // 'yes', 'no'
+            easeOfUsePriority: 'unknown', // 'yes', 'no'
+            threatProtectionPriority: 'unknown', // 'yes', 'no'
+            valuePropositionAccepted: 'unknown' // 'yes', 'no'
+        };
+        // --- END Global State ---
+
+        function displayMessage(message, type = 'gem') {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add(type === 'gem' ? 'gem-message' : 'user-choice');
+            messageElement.innerHTML = message;
+            gemDisplay.appendChild(messageElement);
+            gemDisplay.scrollTop = gemDisplay.scrollHeight;
+        }
+
+        function clearButtons() {
+            buttonContainer.innerHTML = '';
+        }
+
+        function createButton(text, value) {
+            const button = document.createElement('button');
+            button.classList.add('action-button');
+            button.textContent = text;
+            button.onclick = () => handleUserAction(value, text);
+            buttonContainer.appendChild(button);
+        }
+
+        function updateButtons(buttonConfigs) {
+            clearButtons();
+            buttonConfigs.forEach(config => {
+                createButton(config.text, config.value);
+            });
+        }
+
+        // --- Main Interaction Logic ---
+        function getVMISResponseAndButtons(action) {
+            let geminiText = "";
+            let buttons = [];
+
+            switch (action) {
+                case 'start_discovery':
+                    geminiText = "Hello! Let's talk about your company's mobile security.<br><br>Have you ever considered what would happen if your company fell victim to a security attack, especially through mobile devices?";
+                    buttons = [
+                        { text: "Yes, it's a major concern", value: "attack_concern_yes" },
+                        { text: "Not really, we feel secure", value: "attack_concern_no" },
+                        { text: "I'm unsure / Need more info", value: "explain_risk" }
+                    ];
+                    break;
+
+                case 'explain_risk':
+                    geminiText = "Mobile devices are increasingly targeted by cyber threats. A breach through an unsecured device can lead to data loss, financial penalties, reputational damage, and business disruption. Even seemingly small incidents can have significant Impacts.";
+                    buttons = [
+                        { text: "That is concerning", value: "ask_q1" }, // Leads to Q1 directly
+                        { text: "Tell me more about mobile attacks", value: "more_on_mobile_attacks" },
+                        { text: "I'm still not convinced", value: "not_convinced" }
+                    ];
+                    break;
+
+                case 'more_on_mobile_attacks':
+                    geminiText = "Mobile attacks include phishing, malware, unsecured Wi-Fi interception, and compromised apps. These can lead to unauthorized data access, espionage, and ransomware. Protecting mobile endpoints is crucial for overall business security.";
+                    buttons = [
+                        { text: "That is concerning", value: "ask_q1" }, // Leads to Q1 directly
+                        { text: "I'm still not convinced", value: "not_convinced" }
+                    ];
+                    break;
+                
+                case 'not_convinced':
+                    geminiText = "I understand. While every business faces unique risks, robust mobile security is a foundational element in today's threat landscape. Even if attacks aren't a current concern, proactive measures can save significant headaches down the line.";
+                    // Transition to Q1 even if not convinced about attacks
+                    const q1Content = getVMISResponseAndButtons('ask_q1');
+                    geminiText += "<br><br>" + q1Content.geminiText;
+                    buttons = q1Content.buttons;
+                    break;
+
+                case 'attack_concern_yes':
+                case 'attack_concern_no': // Both paths lead to the first specific question now
+                    const q1Start = getVMISResponseAndButtons('ask_q1');
+                    geminiText = q1Start.geminiText; // This will start with the Q1 text
+                    buttons = q1Start.buttons;
+                    break;
+                
+                // --- New VMIS Qualification Questions ---
+                case 'ask_q1':
+                    geminiText = "First, are you looking for a security solution that is easy to deploy and manage, even for a non-technical user?";
+                    buttons = [
+                        { text: "Yes", value: "q1_yes" },
+                        { text: "No", value: "q1_no" }
+                    ];
+                    break;
+
+                case 'q1_yes':
+                case 'q1_no':
+                    geminiText = "Understood. Next, is protecting against mobile threats like phishing, malware, and risky apps a priority for your organization?";
+                    buttons = [
+                        { text: "Yes", value: "q2_yes" },
+                        { text: "No", value: "q2_no" }
+                    ];
+                    break;
+
+                case 'q2_yes':
+                case 'q2_no':
+                    geminiText = "If a solution could deliver these comprehensive mobile security benefits and streamline management for your team, would investing around $2 per month per device make sense for your business?";
+                    buttons = [
+                        { text: "Yes, that makes sense", value: "q3_yes_value_accepted" },
+                        { text: "No, that's too much / I'm unsure", value: "q3_no_value_rejected" }
+                    ];
+                    break;
+
+                case 'q3_yes_value_accepted':
+                case 'q3_no_value_rejected':
+                    // This is where we trigger the final recommendation
+                    const finalRecContent = getVMISResponseAndButtons('final_recommendation');
+                    geminiText = finalRecContent.geminiText;
+                    buttons = finalRecContent.buttons;
+                    break;
+
+                case 'final_recommendation':
+                    let recommendation = "Based on our conversation, here is our tailored recommendation for your mobile security needs:";
+                    
+                    // Logic to determine "perfect fit" and adjust messaging
+                    const isPerfectFit = (vmisDiscoveryState.easeOfUsePriority === 'yes' && 
+                                          vmisDiscoveryState.threatProtectionPriority === 'yes' && 
+                                          vmisDiscoveryState.valuePropositionAccepted === 'yes');
+
+                    if (isPerfectFit) {
+                        recommendation += "<br><br>Given that you prioritize ease of use, strong mobile threat protection, and find the value proposition appealing, Verizon Mobile Internet Security (VMIS) is an absolute perfect fit for your company!";
+                    } else if (vmisDiscoveryState.easeOfUsePriority === 'yes' && vmisDiscoveryState.threatProtectionPriority === 'yes') {
+                        recommendation += "<br><br>Because you're looking for an easy-to-manage solution that provides robust mobile threat protection, Verizon Mobile Internet Security (VMIS) is an excellent choice for your company. We can discuss the pricing further to ensure it aligns with your budget.";
+                    } else {
+                        recommendation += "<br><br>Considering your mobile security concerns and preferences, Verizon Mobile Internet Security (VMIS) is a strong solution to consider for your company.";
+                    }
+
+                    recommendation += "<br><br><strong>Why VMIS is Recommended:</strong><br><ul>";
+                    
+                    if (vmisDiscoveryState.threatProtectionPriority === 'yes' || vmisDiscoveryState.attackConcern === 'yes') {
+                        recommendation += "<li>Comprehensive Mobile Threat Defense: Protects against a wide range of mobile-specific threats like phishing, malware, and risky apps.</li>";
+                    } else {
+                        recommendation += "<li>Foundational Security: Provides essential protection for your mobile devices to prevent common breaches.</li>";
+                    }
+
+                    if (vmisDiscoveryState.easeOfUsePriority === 'yes') {
+                        recommendation += "<li>Simplified Management: Designed for straightforward deployment and ongoing administration, reducing the burden on your IT team.</li>";
+                    } else { // If ease of use is 'no' or 'unknown'
+                        recommendation += "<li>Efficient Protection: Offers robust features without requiring extensive manual intervention for day-to-day use.</li>";
+                    }
+
+                    if (vmisDiscoveryState.valuePropositionAccepted === 'yes') {
+                        recommendation += "<li>Excellent Value: Offers powerful security features at an affordable price point of $2 per device per month, making strong business sense.</li>";
+                    } else {
+                        recommendation += "<li>Cost-Effective Security: Provides significant mobile security enhancements, helping to prevent potentially much larger costs associated with breaches. We can explore how this investment aligns with your overall business objectives.</li>";
+                    }
+                    
+                    recommendation += "</ul>";
+                    
+                    geminiText = recommendation;
+                    buttons = [
+                        { text: "Agree & Generate Email Summary", value: "generate_email_offer" },
+                        { text: "Start Over", value: "restart" }
+                    ];
+                    break;
+                
+                // Email generation flow (retained from your original script)
+                case 'generate_email_offer':
+                    geminiText = "Okay, the recommendation is ready. When you click 'Copy Email to Clipboard', a summary will be copied to your clipboard, which you can then paste into an email to your customer.";
+                    buttons = [
+                        { text: "Copy Email to Clipboard", value: "copy_email" },
+                        { text: "Start Over", value: "restart" }
+                    ];
+                    break;
+
+                case 'copy_email':
+                    let emailSubject = "Enhancing Your Mobile Security with Verizon Mobile Internet Security (VMIS)"; // Updated subject
+                    
+                    let emailBody = "Hi [Customer Name],\n\n";
+                    emailBody += "Following our recent conversation, I wanted to quickly highlight how Verizon Mobile Internet Security (VMIS) can significantly strengthen your company's mobile protection.\n\n";
+                    emailBody += "Based on our discussion, VMIS is an ideal fit because it offers:\n\n";
+                    emailBody += "* Robust Mobile Threat Defense: Proactively guards against phishing, malware, and risky apps.\n";
+                    emailBody += "* Simplified Management: Designed for effortless deployment and ease of use, freeing up your team.\n";
+                    emailBody += "* Exceptional Value: Provides comprehensive security for $2 per device per month.\n\n";
+                    emailBody += "Considering these benefits, how many VMIS licenses would you like to secure for your team?\n\n";
+                    emailBody += "I'm available for a brief follow-up call to answer any questions or help with the next steps.\n\n";
+                    emailBody += "Best regards,\n[Your Name]";
+
+                    navigator.clipboard.writeText(emailBody)
+                        .then(() => {
+                            displayMessage("Email content copied to clipboard! You can now paste it into your email client.", 'gem');
+                        })
+                        .catch(err => {
+                            console.error('Failed to copy text: ', err);
+                            displayMessage("Failed to copy email content. Please try again or copy manually from the console (for debugging).", 'gem');
+                        });
+                    buttons = [
+                        { text: "Start Over", value: "restart" }
+                    ];
+                    break;
+
+                case 'restart':
+                    // Reset state and start fresh
+                    vmisDiscoveryState = {
+                        attackConcern: 'unknown',
+                        easeOfUsePriority: 'unknown',
+                        threatProtectionPriority: 'unknown',
+                        valuePropositionAccepted: 'unknown'
+                    };
+                    gemDisplay.innerHTML = ''; // Clear display
+                    const initialStart = getVMISResponseAndButtons("start_discovery");
+                    geminiText = initialStart.geminiText;
+                    buttons = initialStart.buttons;
+                    break;
+
+                default:
+                    geminiText = `I received an unexpected action: "${action}". Let's restart to get you back on track.`;
+                    buttons = [
+                        { text: "Start Over", value: "restart" }
+                    ];
+                    break;
+            }
+            return { geminiText, buttons };
+        }
+
+        function handleUserAction(actionValue, buttonText = '') {
+            // Update state based on action
+            if (actionValue === 'attack_concern_yes' || actionValue === 'that_is_concerning') {
+                vmisDiscoveryState.attackConcern = 'yes';
+            } else if (actionValue === 'attack_concern_no' || actionValue === 'not_convinced') {
+                vmisDiscoveryState.attackConcern = 'no';
+            }
+
+            if (actionValue === 'q1_yes') {
+                vmisDiscoveryState.easeOfUsePriority = 'yes';
+            } else if (actionValue === 'q1_no') {
+                vmisDiscoveryState.easeOfUsePriority = 'no';
+            }
+
+            if (actionValue === 'q2_yes') {
+                vmisDiscoveryState.threatProtectionPriority = 'yes';
+            } else if (actionValue === 'q2_no') {
+                vmisDiscoveryState.threatProtectionPriority = 'no';
+            }
+
+            if (actionValue === 'q3_yes_value_accepted') {
+                vmisDiscoveryState.valuePropositionAccepted = 'yes';
+            } else if (actionValue === 'q3_no_value_rejected') {
+                vmisDiscoveryState.valuePropositionAccepted = 'no';
+            }
+
+
+            // Display user choice if it's not the initial "Let's Start!" or "Restart" button
+            if (actionValue !== 'start_discovery' && actionValue !== 'restart') {
+                displayMessage(buttonText, 'user');
+            }
+            
+            const { geminiText, buttons } = getVMISResponseAndButtons(actionValue);
+            
+            setTimeout(() => {
+                displayMessage(geminiText);
+                updateButtons(buttons);
+            }, 400);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            handleUserAction("start_discovery", "Let's Start!");
+        });
+    </script>
+</body>
+</html>
